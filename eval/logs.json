@@ -1,0 +1,10 @@
+[
+  {"minutes_ago": 4, "service": "payment-api", "level": "ERROR", "message": "RedisTimeoutError: timeout reading from redis:6379"},
+  {"minutes_ago": 6, "service": "payment-api", "level": "WARN", "message": "redis pool active=50 idle=0 waiters=18"},
+  {"minutes_ago": 12, "service": "gateway", "level": "ERROR", "message": "upstream payment-api timed out, status=504"},
+  {"minutes_ago": 18, "service": "order-worker", "level": "ERROR", "message": "mysql pool timeout after 30 seconds"},
+  {"minutes_ago": 21, "service": "order-worker", "level": "WARN", "message": "consumer lag=18340 partition=2"},
+  {"minutes_ago": 35, "service": "gateway", "level": "ERROR", "message": "upstream connect failed: connection refused, status=502"},
+  {"minutes_ago": 48, "service": "payment-api", "level": "ERROR", "message": "certificate expired for api.partner.example"},
+  {"minutes_ago": 75, "service": "order-worker", "level": "ERROR", "message": "No space left on device while writing checkpoint"}
+]

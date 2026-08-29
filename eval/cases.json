@@ -1,0 +1,17 @@
+[
+  {"id": "redis-1", "messages": ["Redis 读取经常超时，应该先查什么？"], "expected_document": "redis-timeout.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "mysql-1", "messages": ["应用报 Too many connections，连接池一直等不到连接"], "expected_document": "mysql-pool.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "gateway-1", "messages": ["网关持续返回 504，上游一直没有响应"], "expected_document": "gateway-502.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "cpu-1", "messages": ["发布后所有实例 CPU 突然升高，怎么定位？"], "expected_document": "cpu-memory.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "disk-1", "messages": ["服务器提示 No space left on device，但看起来还有一点容量"], "expected_document": "disk-full.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "startup-1", "messages": ["服务启动后立即退出，端口也没有监听"], "expected_document": "service-startup.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "queue-1", "messages": ["consumer lag 持续增长，消息越积越多"], "expected_document": "queue-backlog.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "dns-1", "messages": ["域名解析返回 NXDOMAIN，部分机器访问失败"], "expected_document": "certificate-dns.md", "expected_action": "answer", "expected_tool": "search_runbooks"},
+  {"id": "log-redis", "messages": ["payment-api 最近发生了什么？请查日志"], "expected_document": "redis-timeout.md", "expected_action": "answer", "expected_tool": "query_logs"},
+  {"id": "log-gateway", "messages": ["gateway 最近为什么出现 502？查一下日志"], "expected_document": "gateway-502.md", "expected_action": "answer", "expected_tool": "query_logs"},
+  {"id": "log-mysql", "messages": ["order-worker 最近连接数据库失败，请结合日志排查"], "expected_document": "mysql-pool.md", "expected_action": "answer", "expected_tool": "query_logs"},
+  {"id": "followup", "messages": ["payment-api 的缓存一直超时", "那最近的日志里有什么？"], "expected_document": "redis-timeout.md", "expected_action": "answer", "expected_tool": "query_logs"},
+  {"id": "clarify-1", "messages": ["服务有问题"], "expected_document": null, "expected_action": "clarify", "expected_tool": null},
+  {"id": "clarify-2", "messages": ["报错了，怎么回事"], "expected_document": null, "expected_action": "clarify", "expected_tool": null},
+  {"id": "unknown-1", "messages": ["Kubernetes admission webhook 的 CA bundle 注入失败怎么处理？"], "expected_document": null, "expected_action": "insufficient", "expected_tool": "search_runbooks"}
+]

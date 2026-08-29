@@ -1,0 +1,175 @@
+{
+  "case_count": 15,
+  "evidence_hit_rate": 1.0,
+  "top1_hit_rate": 1.0,
+  "task_completion_rate": 1.0,
+  "median_latency_ms": 17653.4,
+  "details": [
+    {
+      "id": "redis-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 15607.11
+    },
+    {
+      "id": "mysql-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 16070.49
+    },
+    {
+      "id": "gateway-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 18450.98
+    },
+    {
+      "id": "cpu-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 16704.87
+    },
+    {
+      "id": "disk-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 17869.01
+    },
+    {
+      "id": "startup-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 15300.32
+    },
+    {
+      "id": "queue-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 19671.8
+    },
+    {
+      "id": "dns-1",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 17228.24
+    },
+    {
+      "id": "log-redis",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "query_logs",
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 17653.4
+    },
+    {
+      "id": "log-gateway",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "query_logs",
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 25156.51
+    },
+    {
+      "id": "log-mysql",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "query_logs",
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 22662.17
+    },
+    {
+      "id": "followup",
+      "rank": 1,
+      "action": "answer",
+      "tools": [
+        "query_logs",
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 44391.95
+    },
+    {
+      "id": "clarify-1",
+      "rank": null,
+      "action": "clarify",
+      "tools": [],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 0.42
+    },
+    {
+      "id": "clarify-2",
+      "rank": null,
+      "action": "clarify",
+      "tools": [],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 0.42
+    },
+    {
+      "id": "unknown-1",
+      "rank": null,
+      "action": "insufficient",
+      "tools": [
+        "search_runbooks"
+      ],
+      "citation_ok": true,
+      "task_ok": true,
+      "latency_ms": 25355.39
+    }
+  ],
+  "note": "真实模型小型自建评测，只用于验证当前工具选择与证据回答，不代表通用准确率。"
+}

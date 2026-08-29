@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MiniOps Agent</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter,"Microsoft YaHei",sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body { margin: 0; background: #0b1020; color: #e7ecf5; display: grid; place-items: center; }
+    main { width: min(1080px, 94vw); height: min(760px, 92vh); min-height: 520px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; background: #11182b; border: 1px solid #27324a; border-radius: 18px; overflow: hidden; }
+    section { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    header { padding: 16px 24px; border-bottom: 1px solid #27324a; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .heading { min-width: 0; }
+    h1 { margin: 0 0 6px; font-size: 21px; }
+    header p, aside p { margin: 0; color: #97a4bb; font-size: 13px; line-height: 1.6; }
+    #chat { flex: 1 1 0; height: 0; min-height: 0; overflow-y: scroll; overscroll-behavior: contain; padding: 22px; scrollbar-gutter: stable; }
+    .message { max-width: 86%; margin: 0 0 16px; padding: 13px 15px; border-radius: 14px; line-height: 1.65; white-space: pre-wrap; }
+    .user { margin-left: auto; background: #2766d8; }
+    .assistant { background: #1b253b; border: 1px solid #2a3855; }
+    form { flex: 0 0 auto; display: flex; gap: 10px; padding: 16px; border-top: 1px solid #27324a; background: #11182b; }
+    textarea { flex: 1; resize: none; min-height: 54px; padding: 14px; border: 1px solid #33415f; border-radius: 12px; background: #0d1425; color: white; font: inherit; }
+    button { border: 0; border-radius: 12px; padding: 0 22px; min-height: 44px; background: #4180f3; color: white; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    #new-chat { flex: 0 0 auto; padding: 9px 13px; min-height: 36px; background: #26334d; }
+    .hint { padding: 0 18px 12px; color: #8290aa; font-size: 12px; }
+    aside { min-height: 0; padding: 22px; background: #0e1526; border-left: 1px solid #27324a; overflow-y: scroll; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    aside h2 { font-size: 15px; margin: 0 0 14px; }
+    .card { margin-bottom: 12px; padding: 12px; border: 1px solid #293854; border-radius: 10px; background: #151f34; }
+    .card strong { display: block; margin-bottom: 6px; color: #8db6ff; font-size: 13px; }
+    .card p { font-size: 12px; }
+    #chat::-webkit-scrollbar, aside::-webkit-scrollbar { width: 10px; }
+    #chat::-webkit-scrollbar-thumb, aside::-webkit-scrollbar-thumb { background: #40506d; border-radius: 8px; }
+    #chat::-webkit-scrollbar-track, aside::-webkit-scrollbar-track { background: #11182b; }
+    @media (max-height: 600px) { main { height: 96vh; min-height: 0; } header { padding: 10px 18px; } }
+    @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { display: none; } }
+  </style>
+</head>
+<body>
+<main>
+  <section>
+    <header>
+      <div class="heading"><h1>MiniOps 故障排查 Agent</h1>
+      <p>本地知识库 · 模拟日志 · 多轮追问 · 证据引用</p></div>
+      <button id="new-chat" type="button">新建会话</button>
+    </header>
+    <div id="chat"><div class="message assistant">可以问我 Redis 超时、网关 502/504、连接池、CPU/内存、磁盘、启动失败、队列、证书或 DNS。信息不足时我会先追问。</div></div>
+    <div class="hint">可以直接继续追问；当前会话会保留最近六轮内容。</div>
+    <form id="form">
+      <textarea id="input" placeholder="继续追问，或输入新的故障问题"></textarea>
+      <button id="send" type="submit">发送</button>
+    </form>
+  </section>
+  <aside>
+    <h2>本轮证据与工具</h2>
+    <div id="evidence"><p>发送问题后，这里会展示 Agent 调用了什么，以及答案引用了哪些手册。</p></div>
+  </aside>
+</main>
+<script>
+  let sessionId = localStorage.getItem("miniops-session") || null;
+  const chat = document.querySelector("#chat");
+  const input = document.querySelector("#input");
+  const send = document.querySelector("#send");
+  const evidence = document.querySelector("#evidence");
+
+  function addMessage(text, role) {
+    const node = document.createElement("div");
+    node.className = `message ${role}`;
+    node.textContent = text;
+    chat.appendChild(node);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  document.querySelector("#form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = "";
+    input.disabled = true;
+    send.disabled = true;
+    send.textContent = "处理中";
+    addMessage(message, "user");
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message, session_id: sessionId})
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      sessionId = data.session_id;
+      localStorage.setItem("miniops-session", sessionId);
+      addMessage(data.answer, "assistant");
+      evidence.innerHTML = "";
+      [...data.traces.map(item => ({title: `工具：${item.tool}`, text: item.summary})),
+       ...data.citations.map(item => ({title: `${item.document} / ${item.title}`, text: `${item.excerpt}（分数 ${item.score}）`}))]
+        .forEach(item => {
+          const card = document.createElement("div");
+          card.className = "card";
+          const title = document.createElement("strong");
+          const text = document.createElement("p");
+          title.textContent = item.title;
+          text.textContent = item.text;
+          card.append(title, text);
+          evidence.appendChild(card);
+        });
+    } catch (error) {
+      addMessage(`请求失败：${error.message}。命令行窗口中可能有更详细的错误。`, "assistant");
+    } finally {
+      input.disabled = false;
+      send.disabled = false;
+      send.textContent = "发送";
+      input.focus();
+    }
+  });
+
+  document.querySelector("#new-chat").addEventListener("click", () => {
+    sessionId = null;
+    localStorage.removeItem("miniops-session");
+    chat.innerHTML = '<div class="message assistant">新会话已经开始。请描述服务、异常现象和大致发生时间。</div>';
+    evidence.innerHTML = '<p>新会话尚未调用工具。</p>';
+    input.focus();
+  });
+
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      document.querySelector("#form").requestSubmit();
+    }
+  });
+</script>
+</body>
+</html>

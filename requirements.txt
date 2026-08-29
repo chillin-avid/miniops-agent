@@ -1,0 +1,8 @@
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+openai>=2,<3
+qdrant-client>=1.14,<2
+scikit-learn>=1.5,<2
+numpy>=2,<3
+pytest>=8,<10
+
