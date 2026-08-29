@@ -45,7 +45,7 @@ flowchart LR
 
 ## 快速开始
 
-环境要求：Python 3.10+。
+环境要求：Python 3.10+；也可以仅使用 Docker Desktop 运行。
 
 ```powershell
 git clone <your-repository-url>
@@ -58,6 +58,24 @@ python -m uvicorn app:app --reload --port 8090
 ```
 
 浏览器打开 `http://127.0.0.1:8090`，接口文档为 `http://127.0.0.1:8090/docs`。Windows 也可以双击 `启动MiniOps.cmd`。
+
+## Docker 运行
+
+复制 `.env.example` 为 `.env` 并填写自己的模型配置，然后执行：
+
+```powershell
+docker compose up --build -d
+docker compose ps
+docker compose logs -f miniops
+```
+
+浏览器仍然访问 `http://127.0.0.1:8090`。停止并删除容器：
+
+```powershell
+docker compose down
+```
+
+镜像只包含 Python、项目依赖和源码，`.env` 不会进入镜像。Compose 在运行时注入环境变量，并把本地 `data/` 挂载到容器 `/app/data`，因此删除容器后索引、会话和日志仍会保留。
 
 ## 模型配置
 

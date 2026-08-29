@@ -1,0 +1,21 @@
+services:
+  miniops:
+    build:
+      context: .
+    image: miniops-agent:local
+    env_file:
+      - .env
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
