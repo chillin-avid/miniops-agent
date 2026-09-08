@@ -1,0 +1,184 @@
+{
+  "case_count": 6,
+  "baseline": {
+    "document_recall_at_3": 0.7,
+    "full_case_coverage_at_3": 0.5,
+    "relation_path_coverage": 0.0,
+    "median_retrieval_latency_ms": 1.19,
+    "details": [
+      {
+        "id": "gateway-downstream-dependencies",
+        "returned_documents": [
+          "gateway-502.md",
+          "service-startup.md",
+          "certificate-dns.md"
+        ],
+        "covered_documents": [
+          "gateway-502.md"
+        ],
+        "matched_entities": []
+      },
+      {
+        "id": "order-worker-dependencies",
+        "returned_documents": [
+          "redis-timeout.md",
+          "queue-backlog.md",
+          "disk-full.md"
+        ],
+        "covered_documents": [
+          "queue-backlog.md"
+        ],
+        "matched_entities": []
+      },
+      {
+        "id": "gateway-name-resolution",
+        "returned_documents": [
+          "gateway-502.md",
+          "cpu-memory.md",
+          "service-startup.md"
+        ],
+        "covered_documents": [
+          "gateway-502.md"
+        ],
+        "matched_entities": []
+      },
+      {
+        "id": "order-worker-slow-consumption",
+        "returned_documents": [
+          "queue-backlog.md",
+          "gateway-502.md",
+          "mysql-pool.md"
+        ],
+        "covered_documents": [
+          "queue-backlog.md",
+          "mysql-pool.md"
+        ],
+        "matched_entities": []
+      },
+      {
+        "id": "payment-cache-timeout",
+        "returned_documents": [
+          "redis-timeout.md",
+          "disk-full.md",
+          "service-startup.md"
+        ],
+        "covered_documents": [
+          "redis-timeout.md"
+        ],
+        "matched_entities": []
+      },
+      {
+        "id": "gateway-upstream-timeout",
+        "returned_documents": [
+          "gateway-502.md",
+          "service-startup.md",
+          "cpu-memory.md"
+        ],
+        "covered_documents": [
+          "gateway-502.md"
+        ],
+        "matched_entities": []
+      }
+    ]
+  },
+  "graph_enhanced": {
+    "document_recall_at_3": 1.0,
+    "full_case_coverage_at_3": 1.0,
+    "relation_path_coverage": 1.0,
+    "median_retrieval_latency_ms": 1.31,
+    "details": [
+      {
+        "id": "gateway-downstream-dependencies",
+        "returned_documents": [
+          "gateway-502.md",
+          "certificate-dns.md",
+          "redis-timeout.md"
+        ],
+        "covered_documents": [
+          "gateway-502.md",
+          "redis-timeout.md"
+        ],
+        "matched_entities": [
+          "gateway",
+          "payment-api"
+        ]
+      },
+      {
+        "id": "order-worker-dependencies",
+        "returned_documents": [
+          "queue-backlog.md",
+          "mysql-pool.md",
+          "redis-timeout.md"
+        ],
+        "covered_documents": [
+          "queue-backlog.md",
+          "mysql-pool.md"
+        ],
+        "matched_entities": [
+          "order-worker"
+        ]
+      },
+      {
+        "id": "gateway-name-resolution",
+        "returned_documents": [
+          "gateway-502.md",
+          "certificate-dns.md",
+          "redis-timeout.md"
+        ],
+        "covered_documents": [
+          "gateway-502.md",
+          "certificate-dns.md"
+        ],
+        "matched_entities": [
+          "gateway",
+          "payment-api"
+        ]
+      },
+      {
+        "id": "order-worker-slow-consumption",
+        "returned_documents": [
+          "queue-backlog.md",
+          "mysql-pool.md",
+          "gateway-502.md"
+        ],
+        "covered_documents": [
+          "queue-backlog.md",
+          "mysql-pool.md"
+        ],
+        "matched_entities": [
+          "order-worker"
+        ]
+      },
+      {
+        "id": "payment-cache-timeout",
+        "returned_documents": [
+          "redis-timeout.md",
+          "mysql-pool.md",
+          "certificate-dns.md"
+        ],
+        "covered_documents": [
+          "redis-timeout.md"
+        ],
+        "matched_entities": [
+          "payment-api",
+          "Redis"
+        ]
+      },
+      {
+        "id": "gateway-upstream-timeout",
+        "returned_documents": [
+          "gateway-502.md",
+          "certificate-dns.md",
+          "mysql-pool.md"
+        ],
+        "covered_documents": [
+          "gateway-502.md"
+        ],
+        "matched_entities": [
+          "gateway"
+        ]
+      }
+    ]
+  },
+  "note": "小型自建多跳检索消融实验；固定使用相同的本地向量与关键词配置，只比较服务依赖图是否改善证据覆盖，不代表通用问答准确率。"
+}

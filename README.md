@@ -6,6 +6,7 @@ MiniOps Agent 是一个面向运维故障排查的轻量 RAG Agent。用户可�
 
 - 将 8 份 Markdown 故障手册按标题和小节切分为 24 个知识片段，并保留手册、章节和原文引用。
 - 使用 Qwen 文本向量召回语义相近内容，同时融合全库关键词分数，兼顾同义表达、服务名和错误码。
+- 基于服务、组件、故障现象和原因构建可审计的依赖图；实体命中后扩展一至两跳，为跨服务问题补充关联手册和可解释关系路径。
 - 对混合召回候选使用 `qwen3-rerank` 精排，返回 Top-1 证据及完整引用来源。
 - 提供受限的只读日志工具，只能查询配置目录中的 JSONL 日志，支持服务、级别、关键词和时间窗口过滤。
 - 支持模型 Function Calling、多轮追问、会话持久化、服务重启恢复与证据不足拒答。
@@ -21,8 +22,11 @@ flowchart LR
     D --> E[Qwen Embedding]
     E --> F[Qdrant 向量召回]
     D --> G[全库关键词检索]
+    D --> L[实体匹配]
+    L --> M[服务依赖图扩展]
     F --> H[融合候选]
     G --> H
+    M --> H
     H --> I[Qwen Rerank 精排]
     C --> J[模型整理证据]
     I --> J
@@ -36,12 +40,15 @@ flowchart LR
 | 文件 | 作用 |
 |---|---|
 | `retrieval.py` | 文档切分、Embedding、Qdrant 索引、关键词融合与 Rerank |
+| `knowledge_graph.py` | 图谱校验、别名实体匹配、一至两跳遍历和关系路径解释 |
+| `knowledge_graph.json` | 服务、组件、故障现象、原因、手册节点及其关系 |
 | `tools.py` | `search_runbooks` 与 `query_logs` 两个只读工具 |
 | `agent.py` | 模型—工具—观察循环、追问和证据门禁 |
 | `runtime_logs.py` | 真实 JSONL 运行日志、目录白名单和文件轮转 |
 | `session_store.py` | 保存并恢复每个会话最近 12 条消息 |
 | `app.py` | FastAPI 接口、本地页面与启动事件 |
 | `benchmark.py` | 加载评测集并计算任务、证据和排序指标 |
+| `graph_benchmark.py` | 对照关闭与开启图谱时的多跳证据覆盖和检索延迟 |
 
 ## 快速开始
 
@@ -111,6 +118,23 @@ python benchmark.py
 ```
 
 当前结果保存在 `data/benchmark-report.json`。这是用于验证工具选择、引用和检索排序的小型自建回归集，不代表通用运维问答准确率。
+
+另有 6 条多跳检索消融用例，在相同的本地向量与关键词配置下仅切换知识图谱增强：
+
+| 指标 | 原混合检索 | 图谱增强检索 |
+|---|---:|---:|
+| Top-3 文档召回率 | 70% | **100%** |
+| Top-3 整题证据覆盖率 | 50% | **100%** |
+| 关系路径覆盖率 | 0% | **100%** |
+| 中位检索延迟 | 1.19 ms | 1.31 ms |
+
+运行消融评测：
+
+```powershell
+python graph_benchmark.py
+```
+
+结果保存在 `data/graph-benchmark-report.json`。图谱不可用时会自动退回原混合检索，不影响基础问答能力。
 
 ## 测试
 

@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from agent import MiniOpsAgent, _finalize_model_result  # noqa: E402
+from knowledge_graph import KnowledgeGraph  # noqa: E402
 from retrieval import RunbookIndex  # noqa: E402
 from runtime_logs import JsonlLogStore  # noqa: E402
 from session_store import JsonSessionStore  # noqa: E402
@@ -42,6 +43,48 @@ def test_retrieval_finds_expected_runbook(tmp_path: Path) -> None:
     index.rebuild()
     hits = index.search("RedisTimeoutError 连接池读取超时", 3)
     assert hits[0].document == "redis-timeout.md"
+    index.close()
+
+
+def test_graph_expands_service_dependencies_with_explainable_paths() -> None:
+    graph = KnowledgeGraph(ROOT / "knowledge_graph.json")
+    expansion = graph.expand("order-worker 处理速度下降，检查它的下游依赖")
+
+    documents = {item["document"] for item in expansion.paths}
+    assert "queue-backlog.md" in documents
+    assert "mysql-pool.md" in documents
+    assert any(
+        item["relations"][:1] == ["DEPENDS_ON"]
+        and item["document"] == "mysql-pool.md"
+        for item in expansion.paths
+    )
+
+
+def test_graph_enhancement_improves_multi_hop_document_coverage(tmp_path: Path) -> None:
+    query = "gateway 调用支付服务失败，应该沿依赖继续查什么？"
+    baseline = RunbookIndex(ROOT / "runbooks", tmp_path / "base", use_graph=False)
+    enhanced = RunbookIndex(ROOT / "runbooks", tmp_path / "graph", use_graph=True)
+    baseline.rebuild()
+    enhanced.rebuild()
+
+    baseline_documents = {item.document for item in baseline.search(query, 3)}
+    enhanced_documents = {item.document for item in enhanced.search(query, 3)}
+    assert "redis-timeout.md" not in baseline_documents
+    assert "redis-timeout.md" in enhanced_documents
+    baseline.close()
+    enhanced.close()
+
+
+def test_invalid_or_missing_graph_falls_back_to_original_retrieval(
+    tmp_path: Path,
+) -> None:
+    index = RunbookIndex(
+        ROOT / "runbooks",
+        tmp_path / "index",
+        graph_path=tmp_path / "missing.json",
+    )
+    index.rebuild()
+    assert index.search("RedisTimeoutError", 1)[0].document == "redis-timeout.md"
     index.close()
 
 

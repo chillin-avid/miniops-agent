@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 from pathlib import Path
@@ -12,6 +13,7 @@ import numpy as np
 from qdrant_client import QdrantClient, models
 from sklearn.feature_extraction.text import HashingVectorizer
 
+from knowledge_graph import GraphExpansion, KnowledgeGraph
 from models import SearchHit
 
 
@@ -22,7 +24,14 @@ VECTOR_SIZE = 768
 class RunbookIndex:
     """管理本地手册索引，并提供向量与关键词混合检索。"""
 
-    def __init__(self, runbooks_dir: Path, storage_dir: Path) -> None:
+    def __init__(
+        self,
+        runbooks_dir: Path,
+        storage_dir: Path,
+        *,
+        use_graph: bool = True,
+        graph_path: Path | None = None,
+    ) -> None:
         self.runbooks_dir = runbooks_dir.resolve()
         storage_dir.mkdir(parents=True, exist_ok=True)
         self.client = QdrantClient(path=str((storage_dir / "qdrant").resolve()))
@@ -78,6 +87,14 @@ class RunbookIndex:
             alternate_sign=False,
             norm="l2",
         )
+        self.knowledge_graph: KnowledgeGraph | None = None
+        if use_graph:
+            candidate = graph_path or self.runbooks_dir.parent / "knowledge_graph.json"
+            try:
+                self.knowledge_graph = KnowledgeGraph(candidate)
+            except (OSError, ValueError, json.JSONDecodeError):
+                # 图谱是增强层；文件缺失或数据损坏时仍保留原混合检索能力。
+                self.knowledge_graph = None
 
     def rebuild(self) -> int:
         """重建小型索引；数据量很小时全量重建更简单也更可靠。"""
@@ -129,7 +146,20 @@ class RunbookIndex:
     def search(self, query: str, limit: int = 3) -> list[SearchHit]:
         """接收自然语言问题，融合向量相似度和关键词覆盖率后返回前几条。"""
 
+        hits, _ = self.search_with_context(query, limit)
+        return hits
+
+    def search_with_context(
+        self, query: str, limit: int = 3
+    ) -> tuple[list[SearchHit], GraphExpansion]:
+        """返回检索结果，并附上图谱匹配实体和可解释关系路径。"""
+
         self.ensure_ready()
+        graph = (
+            self.knowledge_graph.expand(query)
+            if self.knowledge_graph is not None
+            else GraphExpansion()
+        )
         vector_response = self.client.query_points(
             collection_name=COLLECTION,
             query=self._vectors([query])[0].tolist(),
@@ -154,7 +184,11 @@ class RunbookIndex:
             terms = _terms(text)
             keyword_score = len(query_terms & terms) / max(len(query_terms), 1)
             vector_score = vector_scores.get(str(point.id), 0.0)
-            score = round(vector_score * 0.75 + keyword_score * 0.25, 4)
+            graph_boost = graph.boost_for(str(payload.get("document", "")))
+            score = round(
+                vector_score * 0.75 + keyword_score * 0.25 + graph_boost,
+                4,
+            )
             hits.append(
                 SearchHit(
                     chunk_id=str(payload.get("chunk_id", point.id)),
@@ -165,10 +199,17 @@ class RunbookIndex:
                 )
             )
         # 混合分数先负责扩大候选覆盖，再由模型联合阅读问题和原文进行精排。
-        candidates = sorted(hits, key=lambda item: item.score, reverse=True)[
-            : max(self.rerank_candidate_count, limit)
-        ]
-        return self._rerank(query, candidates, limit)
+        ranked_hits = sorted(hits, key=lambda item: item.score, reverse=True)
+        # 同一手册的多个章节不能挤占全部候选位，先保留每份手册得分最高的章节。
+        unique_documents: list[SearchHit] = []
+        seen_documents: set[str] = set()
+        for hit in ranked_hits:
+            if hit.document in seen_documents:
+                continue
+            seen_documents.add(hit.document)
+            unique_documents.append(hit)
+        candidates = unique_documents[: max(self.rerank_candidate_count, limit)]
+        return self._rerank(query, candidates, limit), graph
 
     def has_known_identifier(self, query: str) -> bool:
         """判断问题中的英文技术标识是否至少有一个真实出现在知识库。"""

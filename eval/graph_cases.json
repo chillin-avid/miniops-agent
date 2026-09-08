@@ -1,0 +1,32 @@
+[
+  {
+    "id": "gateway-downstream-dependencies",
+    "query": "gateway 调用支付服务失败，应该沿依赖继续查什么？",
+    "expected_documents": ["gateway-502.md", "redis-timeout.md"]
+  },
+  {
+    "id": "order-worker-dependencies",
+    "query": "order-worker 处理速度下降，怀疑其两个下游依赖，先看哪些手册？",
+    "expected_documents": ["queue-backlog.md", "mysql-pool.md"]
+  },
+  {
+    "id": "gateway-name-resolution",
+    "query": "gateway 只有部分机器找不到支付服务，公共名称解析异常",
+    "expected_documents": ["gateway-502.md", "certificate-dns.md"]
+  },
+  {
+    "id": "order-worker-slow-consumption",
+    "query": "订单后台任务越来越慢，上游生产速度没有变化",
+    "expected_documents": ["queue-backlog.md", "mysql-pool.md"]
+  },
+  {
+    "id": "payment-cache-timeout",
+    "query": "收银台读取缓存时反复超时，应该先检查哪里？",
+    "expected_documents": ["redis-timeout.md"]
+  },
+  {
+    "id": "gateway-upstream-timeout",
+    "query": "外部请求经过网关后一直等待上游响应",
+    "expected_documents": ["gateway-502.md"]
+  }
+]

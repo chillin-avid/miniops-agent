@@ -24,7 +24,10 @@ class MiniOpsTools:
                 "type": "function",
                 "function": {
                     "name": "search_runbooks",
-                    "description": "检索内部故障手册，返回带来源的相关片段。",
+                    "description": (
+                        "检索内部故障手册，返回带来源的相关片段；命中服务、组件或"
+                        "故障实体时，同时返回知识图谱中的依赖关系路径。"
+                    ),
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -67,7 +70,7 @@ class MiniOpsTools:
             query = str(arguments.get("query", "")).strip()
             if not query:
                 raise ValueError("检索问题不能为空")
-            hits = self.index.search(
+            hits, graph = self.index.search_with_context(
                 query, min(max(int(arguments.get("limit", 3)), 1), 5)
             )
             self.log_store.record(
@@ -76,7 +79,10 @@ class MiniOpsTools:
                 f"search_runbooks returned {len(hits)} hits",
                 event="tool.search_runbooks",
             )
-            return {"hits": [_hit_payload(hit) for hit in hits]}
+            return {
+                "hits": [_hit_payload(hit) for hit in hits],
+                **graph.as_dict({hit.document for hit in hits}),
+            }
         if name == "query_logs":
             # 并把“支付接口”等用户说法统一成日志中的真实服务名。
             normalized = self.normalize_log_arguments(arguments)
