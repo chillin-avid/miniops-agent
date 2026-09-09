@@ -60,6 +60,68 @@ def test_graph_expands_service_dependencies_with_explainable_paths() -> None:
     )
 
 
+def test_graph_catalog_exposes_entry_nodes_but_not_document_nodes() -> None:
+    graph = KnowledgeGraph(ROOT / "knowledge_graph.json")
+    catalog = graph.catalog_for_prompt()
+    assert "服务：" in catalog
+    assert "组件：" in catalog
+    assert "service.payment=payment-api" in catalog
+    assert "支付接口" in catalog
+    assert "doc.redis" not in catalog
+
+
+def test_model_selected_graph_entry_resolves_typo_without_query_rewrite() -> None:
+    graph = KnowledgeGraph(ROOT / "knowledge_graph.json")
+    query = "支付aoi访问缓存一直超时"
+    alias_matches = {item["id"] for item in graph.expand(query).matched_entities}
+    assert "component.redis" in alias_matches
+    assert "service.payment" not in alias_matches
+
+    expansion = graph.expand(query, entity_ids=["service.payment", "component.redis"])
+    assert expansion.selection_source == "model"
+    assert [item["id"] for item in expansion.matched_entities] == [
+        "service.payment",
+        "component.redis",
+    ]
+    assert graph.selection_is_grounded(query, ["service.payment", "component.redis"])
+    assert not graph.selection_is_grounded(
+        "Kubernetes Pod一直Pending，该怎么处理？",
+        ["component.host", "symptom.startup_failure"],
+    )
+    assert "redis-timeout.md" in {item["document"] for item in expansion.paths}
+
+
+def test_graph_rejects_invalid_or_document_entry_nodes() -> None:
+    graph = KnowledgeGraph(ROOT / "knowledge_graph.json")
+    with pytest.raises(ValueError, match="不存在对应"):
+        graph.expand("支付接口超时", entity_ids=["service.missing"])
+    with pytest.raises(ValueError, match="文档节点不能"):
+        graph.expand("支付接口超时", entity_ids=["doc.redis"])
+
+
+def test_search_tool_keeps_query_separate_from_graph_entries(tmp_path: Path) -> None:
+    index = RunbookIndex(ROOT / "runbooks", tmp_path / "index")
+    index.rebuild()
+    tools = MiniOpsTools(index, JsonlLogStore(tmp_path / "runtime.jsonl"))
+    query = "支付aoi访问缓存一直超时"
+    result = tools.execute(
+        "search_runbooks",
+        {
+            "query": query,
+            "entity_ids": ["service.payment", "component.redis"],
+            "limit": 3,
+        },
+    )
+
+    assert result["entity_selection"] == "model"
+    assert {item["id"] for item in result["matched_entities"]} == {
+        "service.payment",
+        "component.redis",
+    }
+    assert any(item["document"] == "redis-timeout.md" for item in result["hits"])
+    index.close()
+
+
 def test_graph_enhancement_improves_multi_hop_document_coverage(tmp_path: Path) -> None:
     query = "gateway 调用支付服务失败，应该沿依赖继续查什么？"
     baseline = RunbookIndex(ROOT / "runbooks", tmp_path / "base", use_graph=False)

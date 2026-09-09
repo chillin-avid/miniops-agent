@@ -149,14 +149,36 @@ class RunbookIndex:
         hits, _ = self.search_with_context(query, limit)
         return hits
 
+    def graph_catalog_for_prompt(self) -> str:
+        """返回非文档图谱节点的精简目录；图谱不可用时返回空串。"""
+
+        if self.knowledge_graph is None:
+            return ""
+        return self.knowledge_graph.catalog_for_prompt()
+
+    def graph_selection_is_grounded(
+        self,
+        query: str,
+        entity_ids: list[str] | None,
+    ) -> bool:
+        """校验模型选择的图谱入口是否得到原问题或对话实体信号支持。"""
+
+        if self.knowledge_graph is None:
+            return False
+        return self.knowledge_graph.selection_is_grounded(query, entity_ids)
+
     def search_with_context(
-        self, query: str, limit: int = 3
+        self,
+        query: str,
+        limit: int = 3,
+        *,
+        entity_ids: list[str] | None = None,
     ) -> tuple[list[SearchHit], GraphExpansion]:
-        """返回检索结果，并附上图谱匹配实体和可解释关系路径。"""
+        """同时返回原始问题检索结果和指定入口产生的图谱关系路径。"""
 
         self.ensure_ready()
         graph = (
-            self.knowledge_graph.expand(query)
+            self.knowledge_graph.expand(query, entity_ids=entity_ids)
             if self.knowledge_graph is not None
             else GraphExpansion()
         )

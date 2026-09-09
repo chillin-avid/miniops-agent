@@ -19,6 +19,12 @@ class MiniOpsTools:
 
     @property
     def specs(self) -> list[dict[str, Any]]:
+        graph_catalog = self.index.graph_catalog_for_prompt()
+        graph_guidance = (
+            "图谱入口目录：" + graph_catalog
+            if graph_catalog
+            else "当前没有可用的图谱入口目录"
+        )
         return [
             {
                 "type": "function",
@@ -26,12 +32,21 @@ class MiniOpsTools:
                     "name": "search_runbooks",
                     "description": (
                         "检索内部故障手册，返回带来源的相关片段；命中服务、组件或"
-                        "故障实体时，同时返回知识图谱中的依赖关系路径。"
+                        "故障实体时，同时返回知识图谱中的依赖关系路径。query 应保留"
+                        "用户问题及必要的对话语义，不要为了匹配图谱而追加或替换规范"
+                        "节点名；请结合下列目录，在有把握时用 entity_ids 单独提交图谱"
+                        "入口，不确定时传空列表且不要编造。" + graph_guidance
                     ),
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {"type": "string"},
+                            "entity_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "maxItems": 5,
+                                "uniqueItems": True,
+                            },
                             "limit": {"type": "integer", "minimum": 1, "maximum": 5},
                         },
                         "required": ["query"],
@@ -70,8 +85,16 @@ class MiniOpsTools:
             query = str(arguments.get("query", "")).strip()
             if not query:
                 raise ValueError("检索问题不能为空")
+            raw_entity_ids = arguments.get("entity_ids", [])
+            if raw_entity_ids is None:
+                raw_entity_ids = []
+            if not isinstance(raw_entity_ids, list):
+                raise ValueError("entity_ids 必须是节点 ID 列表")
+            entity_ids = list(raw_entity_ids)
             hits, graph = self.index.search_with_context(
-                query, min(max(int(arguments.get("limit", 3)), 1), 5)
+                query,
+                min(max(int(arguments.get("limit", 3)), 1), 5),
+                entity_ids=entity_ids,
             )
             self.log_store.record(
                 "retrieval",

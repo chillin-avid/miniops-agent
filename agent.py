@@ -16,6 +16,7 @@ SYSTEM_PROMPT = """你是轻量级故障排查助手。你只能使用提供的�
 先判断信息是否足以定位服务和现象；关键信息缺失时应简短追问。
 只要用户给出了明确故障现象、错误码或异常行为，即使没有服务名，也应先调用 search_runbooks 给出基于手册的通用排查；只有“服务有问题”这类完全没有现象的问题才追问。
 需要事实时调用 search_runbooks，用户明确询问近期日志或问题依赖运行现象时调用 query_logs。
+调用 search_runbooks 时保留用户问题及必要的对话语义，不要为匹配图谱改写或追加规范节点名；结合工具说明中的精简目录，把有把握的图谱入口写入 entity_ids，不确定时传空列表，不得编造节点 ID。
 最终用中文给出：判断、排查步骤、依据。没有证据时明确说证据不足，不要编造。
 引用手册时使用 [文档名 / 章节]，不要声称执行了重启、删除或修改操作。"""
 
@@ -132,7 +133,11 @@ class MiniOpsAgent:
             for call in calls:
                 try:
                     arguments = json.loads(call.function.arguments or "{}")
-                    if call.function.name == "query_logs":
+                    if call.function.name == "search_runbooks":
+                        # 模型只负责选择图谱入口；向量与关键词检索始终使用用户本轮
+                        # 原问题，避免模型追加规范名后人为抬高某份手册的召回分数。
+                        arguments["query"] = current_question
+                    elif call.function.name == "query_logs":
                         # 模型可以写“支付接口”，主程序在执行前统一成 payment-api。
                         arguments = self.tools.normalize_log_arguments(arguments)
                     result = self.tools.execute(call.function.name, arguments)
@@ -149,12 +154,30 @@ class MiniOpsAgent:
                 if raw_hits:
                     candidate_hits = [SearchHit(**item) for item in raw_hits]
                     query = str(arguments.get("query", ""))
+                    model_linked_entities = (
+                        result.get("entity_selection") == "model"
+                        and bool(result.get("matched_entities"))
+                    )
+                    grounded_model_entities = (
+                        model_linked_entities
+                        and self.tools.index.graph_selection_is_grounded(
+                            recent_context,
+                            [
+                                str(item.get("id", ""))
+                                for item in result.get("matched_entities", [])
+                            ],
+                        )
+                    )
+                    identity_valid = (
+                        grounded_model_entities
+                        if model_linked_entities
+                        else (
+                            self.tools.index.has_known_identifier(query)
+                            and self.tools.index.has_known_identifier(current_question)
+                        )
+                    )
                     # 模型负责决定搜什么，主程序只校验证据是否足够相关。
-                    if (
-                        candidate_hits[0].score >= 0.15
-                        and self.tools.index.has_known_identifier(query)
-                        and self.tools.index.has_known_identifier(current_question)
-                    ):
+                    if candidate_hits[0].score >= 0.15 and identity_valid:
                         for hit in candidate_hits:
                             citations[hit.chunk_id] = hit
                 raw_logs = result.get("logs", [])

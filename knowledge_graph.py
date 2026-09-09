@@ -23,6 +23,13 @@ REVERSE_RELATIONS = {
     "AFFECTS": "IS_AFFECTED_BY",
     "CHECK_WITH": "IS_CHECK_FOR",
 }
+ENTITY_TYPE_LABELS = (
+    ("service", "服务"),
+    ("component", "组件"),
+    ("symptom", "故障现象"),
+    ("cause", "可能原因"),
+)
+MAX_EXPLICIT_ENTITIES = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +39,7 @@ class GraphExpansion:
     matched_entities: tuple[dict[str, str], ...] = ()
     document_boosts: tuple[tuple[str, float], ...] = ()
     paths: tuple[dict[str, Any], ...] = ()
+    selection_source: str = ""
 
     def boost_for(self, document: str) -> float:
         return dict(self.document_boosts).get(document, 0.0)
@@ -45,6 +53,7 @@ class GraphExpansion:
         return {
             "matched_entities": [dict(item) for item in self.matched_entities],
             "graph_paths": [dict(item) for item in paths],
+            "entity_selection": self.selection_source,
         }
 
 
@@ -110,12 +119,66 @@ class KnowledgeGraph:
             else:
                 raise ValueError(f"不支持的知识图谱关系：{relation}")
 
-    def expand(self, query: str, max_hops: int = 2) -> GraphExpansion:
-        """匹配问题实体，扩展最多两跳，并返回关联文档和关系路径。"""
+    def catalog_for_prompt(self) -> str:
+        """按类型生成精简入口目录，让模型只选择图谱中真实存在的节点。"""
 
-        matched_ids = self._match_entities(query)
+        groups: list[str] = []
+        for node_type, label in ENTITY_TYPE_LABELS:
+            entries: list[str] = []
+            for node in self.nodes.values():
+                if node["type"] != node_type:
+                    continue
+                aliases = "、".join(node["aliases"])
+                alias_text = f"（别名：{aliases}）" if aliases else ""
+                entries.append(f'{node["id"]}={node["name"]}{alias_text}')
+            if entries:
+                groups.append(f"{label}：" + "；".join(entries))
+        return " | ".join(groups)
+
+    def validate_entity_ids(self, entity_ids: list[str] | None) -> list[str]:
+        """校验模型选择的入口节点，拒绝不存在的节点和文档终点。"""
+
+        if not entity_ids:
+            return []
+        if len(entity_ids) > MAX_EXPLICIT_ENTITIES:
+            raise ValueError(f"图谱入口最多允许 {MAX_EXPLICIT_ENTITIES} 个节点")
+
+        validated: list[str] = []
+        for raw_id in entity_ids:
+            if not isinstance(raw_id, str) or not raw_id.strip():
+                raise ValueError("图谱入口节点 ID 必须是非空字符串")
+            node_id = raw_id.strip()
+            node = self.nodes.get(node_id)
+            if node is None:
+                raise ValueError(f"不存在对应的图谱节点：{node_id}")
+            if node["type"] == "document":
+                raise ValueError(f"文档节点不能作为图谱入口：{node_id}")
+            if node_id not in validated:
+                validated.append(node_id)
+        return validated
+
+    def selection_is_grounded(self, query: str, entity_ids: list[str] | None) -> bool:
+        """判断模型选择的入口是否至少有一个得到原问题或对话中的实体信号支持。"""
+
+        selected_ids = set(self.validate_entity_ids(entity_ids))
+        if not selected_ids:
+            return False
+        return bool(selected_ids & set(self._match_entities(query)))
+
+    def expand(
+        self,
+        query: str,
+        max_hops: int = 2,
+        *,
+        entity_ids: list[str] | None = None,
+    ) -> GraphExpansion:
+        """使用模型选择或别名匹配的入口，扩展最多两跳并返回关系路径。"""
+
+        selected_ids = self.validate_entity_ids(entity_ids)
+        matched_ids = selected_ids or self._match_entities(query)
         if not matched_ids:
             return GraphExpansion()
+        selection_source = "model" if selected_ids else "alias"
 
         best_documents: dict[str, tuple[float, dict[str, Any]]] = {}
         for start_id in matched_ids:
@@ -166,6 +229,7 @@ class KnowledgeGraph:
             ),
             document_boosts=tuple((document, value[0]) for document, value in ordered),
             paths=tuple(value[1] for _, value in ordered),
+            selection_source=selection_source,
         )
 
     def _match_entities(self, query: str) -> list[str]:
